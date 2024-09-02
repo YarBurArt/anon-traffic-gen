@@ -3,6 +3,8 @@ package main
 import (
     "os"
     "testing"
+
+    "github.com/spf13/viper"
 )
 
 func TestLoadConfig(t *testing.T) {
