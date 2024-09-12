@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 package main
 
 import (
@@ -115,3 +116,159 @@ func main() {
         os.Exit(1)
     }
 }
+=======
+package main
+
+import (
+    "fmt"
+    "math/rand"
+    "net/http"
+    "os"
+    "time"
+
+    "github.com/gorilla/websocket"
+    "github.com/spf13/cobra"
+    "github.com/spf13/viper"
+)
+
+type Config struct {
+    URLs       []string `mapstructure:"urls"`
+    UserAgents []string `mapstructure:"user_agents"`
+    RateLimit  int      `mapstructure:"rate_limit"`
+}
+
+var rootCmd = &cobra.Command{
+    Use:   "my-app",
+    Short: "A simple application to generate HTTP traffic",
+    Run: func(cmd *cobra.Command, args []string) {
+        config := loadConfig()
+
+        fmt.Println("Starting HTTP traffic generation...")
+
+        stop := make(chan struct{})
+
+        go sendRequests(config, stop)
+
+        fmt.Println("Press Enter to stop")
+        fmt.Scanln()
+
+        close(stop)
+    },
+}
+
+func init() {
+    cobra.OnInitialize(initConfig)
+    rootCmd.PersistentFlags().String("config", "config.yaml", "config file (default is config.yaml)")
+    viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+}
+
+func initConfig() {
+    viper.SetConfigType("yaml")
+    viper.AutomaticEnv()
+    configFile := viper.GetString("config")
+    if configFile != "" {
+        viper.SetConfigFile(configFile)
+        if err := viper.ReadInConfig(); err != nil {
+            fmt.Println("Error reading config file:", err)
+        }
+    }
+}
+
+func loadConfig() Config {
+    var config Config
+    err := viper.Unmarshal(&config)
+    if err != nil {
+        fmt.Println("Unable to decode into struct, ", err)
+    }
+    return config
+}
+
+func sendRequests(config Config, stop chan struct{}) {
+    for {
+        select {
+        case <-stop:
+            return
+        default:
+            // Send HTTP requests
+            sendHTTPRequests(config)
+
+            // Randomly send WebSocket traffic
+            if rand.Intn(5) == 0 { // 20% chance of sending WebSocket traffic
+                generateWebSocketTraffic(config)
+            }
+
+            // Add delay for rate limiting
+            time.Sleep(time.Second * time.Duration(config.RateLimit))
+        }
+    }
+}
+
+func sendHTTPRequests(config Config) {
+    for _, url := range config.URLs {
+        for _, ua := range config.UserAgents {
+            // Create request
+            req, err := http.NewRequest(http.MethodGet, url, nil)
+            if err != nil {
+                fmt.Println("Error creating request:", err)
+                continue
+            }
+            req.Header.Set("User-Agent", ua)
+
+            // Send request and measure time
+            start := time.Now()
+            client := &http.Client{}
+            resp, err := client.Do(req)
+            elapsed := time.Since(start)
+
+            if err != nil {
+                fmt.Println("Error sending request:", err)
+                continue
+            }
+            defer resp.Body.Close()
+
+            // Print request details
+            fmt.Printf("Request: %s %s (User-Agent: %s)\n", http.MethodGet, url, ua)
+
+            // Print response details
+            fmt.Printf("Response: Status Code: %d, Elapsed Time: %s\n", resp.StatusCode, elapsed)
+
+            // Optional: Print response headers (if needed)
+            // for key, value := range resp.Header {
+            //     fmt.Printf("  Header: %s = %s\n", key, value)
+            // }
+        }
+    }
+}
+
+func generateWebSocketTraffic(config Config) {
+    dialer := websocket.Dialer{}
+
+    for _, url := range config.URLs {
+        for _, ua := range config.UserAgents {
+            // Establish WebSocket connection
+            headers := http.Header{}
+            headers.Set("User-Agent", ua)
+            conn, _, err := dialer.Dial(url, headers)
+            if err != nil {
+                fmt.Println("Error connecting to WebSocket:", err)
+                continue
+            }
+            defer conn.Close()
+
+            // Send message and immediately close the connection
+            message := []byte(fmt.Sprintf("WS message: %d", rand.Intn(1000)))
+            err = conn.WriteMessage(websocket.TextMessage, message)
+            if err != nil {
+                fmt.Println("Error sending WebSocket message:", err)
+            }
+        }
+    }
+}
+
+func main() {
+    if err := rootCmd.Execute(); err != nil {
+        fmt.Println(err)
+        os.Exit(1)
+    }
+}
+>>>>>>> 754d061 (add ws generate)
