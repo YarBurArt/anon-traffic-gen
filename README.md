@@ -25,6 +25,7 @@ The application uses the Cobra library for the command-line interface, Viper for
    - `sendHTTPRequests()`: Sends HTTP GET requests to the configured URLs using the configured user agents.
    - `generateWebSocketTraffic()`: Establishes WebSocket connections to the configured URLs, sends a random message, and immediately closes the connection.
 5. `main()`: The entry point of the application, which executes the `rootCmd`.
+6. `downloadFile` softly hides tunnel, vpn and proxy connections, via torrent ip connection
 
 ## Dependencies
 
