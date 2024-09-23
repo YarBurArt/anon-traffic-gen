@@ -133,7 +133,7 @@ func sendHTTPRequests(config Config) {
             defer resp.Body.Close()
 
             // output current request status 
-            fmt.Printf("Request: %s %s (User-Agent: %s)\n", http.MethodGet, url);
+            fmt.Printf("Request: %s %s \n", http.MethodGet, url);
             fmt.Printf("Response: Status Code: %d, Elapsed Time: %s\n", resp.StatusCode, elapsed)
 
             // Parse response body for additional URLs
