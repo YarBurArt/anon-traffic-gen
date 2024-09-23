@@ -1,6 +1,6 @@
 # anon-traffic-gen
 
-A simple application to generate HTTP and WebSocket traffic.
+A simple application to generate HTTP and WebSocket traffic. The code is designed and licensed solely for legitimate use, as a protective measure against MITM attacks. For instance, if you suspect network equipment compromise, this application can help obfuscate your traffic and mitigate eavesdropping risks.
 
 ## Description
 
@@ -14,7 +14,8 @@ The application uses the Cobra library for the command-line interface, Viper for
 
 2. **Command-Line Interface**: Cobra is used to implement the command-line interface, allowing users to easily run the application with custom configuration options.
 
-3. **Traffic Generation**: The `sendRequests()` function is the core of the application, managing the main traffic generation loop. It alternates between sending HTTP requests using the `sendHTTPRequests()` function and generating WebSocket traffic with the `generateWebSocketTraffic()` function, with a delay for rate limiting.
+3. **Traffic Generation**: The `sendRequests()` function is the core of the application, managing the main traffic generation loop. It alternates between sending HTTP requests using the `sendHTTPRequests()` function and generating WebSocket traffic with the `generateWebSocketTraffic()` function, with a delay for rate limiting. The `downloadFile` function downloads a file from a magnet URI using a torrent client, retrying the download up to a specified number of attempts, saving the file, and cleaning up the client, to hide parallel proxy connections.
+
 
 ## Code Structure
 
