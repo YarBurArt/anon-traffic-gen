@@ -4,12 +4,15 @@ import (
     "fmt"
     "path/filepath"
     "math/rand"
+    "io/ioutil"
     "net/http"
+    "regexp"
     "os"
     "time"
 
     "github.com/gorilla/websocket"
     "github.com/spf13/cobra"
+    "gopkg.in/yaml.v2"
     "github.com/spf13/viper"
     "github.com/anacrolix/torrent"
 )
@@ -110,7 +113,6 @@ func sendRequests(config Config, stop chan struct{}) {
 func sendHTTPRequests(config Config) {
     for _, url := range config.URLs {
         for _, ua := range config.UserAgents {
-            // Create request
             req, err := http.NewRequest(http.MethodGet, url, nil)
             if err != nil {
                 fmt.Println("Error creating request:", err)
@@ -118,7 +120,7 @@ func sendHTTPRequests(config Config) {
             }
             req.Header.Set("User-Agent", ua)
 
-            // Send request and measure time
+            // send request and measure time
             start := time.Now()
             client := &http.Client{}
             resp, err := client.Do(req)
@@ -130,20 +132,59 @@ func sendHTTPRequests(config Config) {
             }
             defer resp.Body.Close()
 
-            // Print request details
-            fmt.Printf("Request: %s %s (User-Agent: %s)\n", http.MethodGet, url, ua)
-
-            // Print response details
+            // output current request status 
+            fmt.Printf("Request: %s %s (User-Agent: %s)\n", http.MethodGet, url);
             fmt.Printf("Response: Status Code: %d, Elapsed Time: %s\n", resp.StatusCode, elapsed)
 
-            // Optional: Print response headers (if needed)
-            // for key, value := range resp.Header {
-            //     fmt.Printf("  Header: %s = %s\n", key, value)
-            // }
+            // Parse response body for additional URLs
+            body, err := ioutil.ReadAll(resp.Body)
+            if err != nil {
+                fmt.Println("Error reading response body:", err)
+                continue
+            }
+
+            // new urls to  config
+            links := findURLs(string(body))
+            for _, link := range links {
+                if !contains(config.URLs, link) {
+                    config.URLs = append(config.URLs, link)
+                    fmt.Printf("Added new URL to config: %s\n", link)
+                }
+            }
         }
     }
+    saveConfig(config, "config.yaml") // update urls
 }
 
+func findURLs(text string) []string {
+    // regex to find all URLs in response
+    urlRegex := regexp.MustCompile(`(https?://\S+)`)
+    return urlRegex.FindAllString(text, -1)
+}
+
+func contains(slice []string, value string) bool {
+    for _, v := range slice {
+        if v == value {
+            return true
+        }
+    }
+    return false
+}
+
+func saveConfig(config Config, filename string) {
+    // update config to YAML file
+    data, err := yaml.Marshal(config)
+    if err != nil {
+        fmt.Println("Error marshaling config:", err)
+        return
+    }
+
+    err = ioutil.WriteFile(filename, data, 0644)
+    if err != nil {
+        fmt.Println("Error writing config file:", err)
+        return
+    }
+}
 func generateWebSocketTraffic(config Config) {
     dialer := websocket.Dialer{}
 
