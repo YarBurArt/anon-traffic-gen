@@ -35,7 +35,8 @@ The application relies on the following external libraries:
 - [Cobra](https://github.com/spf13/cobra): For the command-line interface.
 - [Viper](https://github.com/spf13/viper): For configuration management.
 - [Gorilla WebSocket](https://github.com/gorilla/websocket): For WebSocket communication.
-
+- [Anacrolix Torrent](https://github.com/anacrolix/torrent): For torrents IP
+  
 These dependencies are managed using Go modules.
 
 ## Configuration
@@ -55,6 +56,55 @@ rate_limit: 1 # Requests per second
 ```
 
 ## Usage
+### Installation Instructions
+
+In Go, you typically don't need to manually install each dependency using `go get`. Instead, just run the `go build` command, which will automatically fetch and install any missing dependencies listed in your `go.mod` file.
+
+```bash
+go build
+```
+
+
+You might need to use `go get` for specific dependencies only if the automatic installation during `go build` fails. This can be useful when you're modifying the source code or setting up the project for the first time and want to ensure all dependencies are in place.
+
+To install the required libraries for the `anon-traffic-gen` , you can use the following commands. Make sure you have Go installed on your system.
+
+1. **Gorilla WebSocket**:
+   ```bash
+   go get github.com/gorilla/websocket
+   ```
+
+2. **Cobra**:
+   ```bash
+   go get github.com/spf13/cobra
+   ```
+
+3. **Viper**:
+   ```bash
+   go get github.com/spf13/viper
+   ```
+
+4. **YAML**:
+   ```bash
+   go get gopkg.in/yaml.v2
+   ```
+
+5. **Anacrolix Torrent**:
+   ```bash
+   go get github.com/anacrolix/torrent
+   ```
+
+### Potential Issues After Installation
+
+After installing the libraries, you might run into some challenges that could affect how the application performs. There could be configuration issues that lead to instability, so it's a good idea to double-check your settings. 
+
+In some cases, certain functionalities might be better implemented manually instead of relying entirely on the libraries, which could improve performance and give you more control. 
+
+While the code works, there may be opportunities to enhance its readability and documentation, making it easier for others to understand and contribute. 
+
+Additionally, the application might not always manage rate limiting perfectly, which could lead to unexpected behavior during traffic generation. The torrent functionality may also need some adjustments for optimal performance.
+
+These aspects present a chance for improvement, and exploring the code could lead to valuable insights and enhancements!
 
 To run the application, use the following command:
 
@@ -62,7 +112,7 @@ To run the application, use the following command:
 main --config=config.yaml
 ```
 
-This will start the traffic generation and continue until you press Enter to stop.
+This will start the traffic generation and continue until you press to stop.
 
 ## Contributing
 
