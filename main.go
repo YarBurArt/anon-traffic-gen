@@ -20,7 +20,11 @@ import (
 type Config struct {
     URLs       []string `mapstructure:"urls"`
     UserAgents []string `mapstructure:"user_agents"`
-    RateLimit  int      `mapstructure:"rate_limit"`
+    RateLimit    int      `mapstructure:"rate_limit"`
+    Timeout      int      `mapstructure:"timeout"`
+    MaxRetries   int      `mapstructure:"max_retries"`
+    WebSocketTimeout int  `mapstructure:"websocket_timeout"`
+    TorrentLink  string   `mapstructure:"torrent_link"`
 }
 
 var rootCmd = &cobra.Command{
@@ -30,11 +34,11 @@ var rootCmd = &cobra.Command{
         config := loadConfig()
 
         fmt.Println("Starting HTTP traffic generation...")
-
         stop := make(chan struct{})
 
         go sendRequests(config, stop)
-        go downloadFile("magnet:?xt=urn:btih:723924A57607F3C926A644271E5B40BDF0B36F29&dn=IObit+Driver+Booster+Pro+12.0.0.308+Cracked+-+%5BCZSofts%5D&tr=http%3A%2F%2Fbt02.nnm-club.cc%3A2710%2F00b89bb6cf2713fa8a7b67da0f5dc8ee%2Fannounce&tr=http%3A%2F%2Fbt02.nnm-club.info%3A2710%2F00b89bb6cf2713fa8a7b67da0f5dc8ee%2Fannounce&tr=http%3A%2F%2Fretracker.local%2Fannounce.php%3Fsize%3D31539444%26comment%3Dhttp%253A%252F%252Fnnmclub.to%252Fforum%252Fviewtopic.php%253Fp%253D12483744%26name%3DIObit%2BDriver%2BBooster%2BPro%2B12.0.0.308%2BRePack%2B%2528%2526amp%253B%2BPortable%2529%2Bby%2BTryRooM%2B%255BMulti%252FRu%255D&tr=http%3A%2F%2Fbt02.ipv6.nnm-club.cc%3A2710%2F00b89bb6cf2713fa8a7b67da0f5dc8ee%2Fannounce&tr=http%3A%2F%2Fbt02.ipv6.nnm-club.info%3A2710%2F00b89bb6cf2713fa8a7b67da0f5dc8ee%2Fannounce&tr=http%3A%2F%2F%5B2a01%3Ad0%3Aa580%3A1%3A%3A2%5D%3A2710%2F00b89bb6cf2713fa8a7b67da0f5dc8ee%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=http%3A%2F%2Ftracker.openbittorrent.com%3A80%2Fannounce&tr=udp%3A%2F%2Fopentracker.i2p.rocks%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.internetwarriors.net%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969%2Fannounce&tr=udp%3A%2F%2Fcoppersurfer.tk%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.zer0day.to%3A1337%2Fannounce",10) // some time for ip spoof 
+        // more effective on tiny but popular torrents, where a lot of IP for content distribution
+        go downloadFile(config.TorrentLink, config.MaxRetries) // some time for ip spoof 
         fmt.Println("Press Enter to stop")
         fmt.Scanln()
 
@@ -157,7 +161,7 @@ func sendHTTPRequests(config Config) {
 }
 
 func findURLs(text string) []string {
-    // regex to find all URLs in response
+    // regex to find all URLs in response, FIXME: some html after url
     urlRegex := regexp.MustCompile(`(https?://\S+)`)
     return urlRegex.FindAllString(text, -1)
 }
@@ -178,7 +182,7 @@ func saveConfig(config Config, filename string) {
         fmt.Println("Error marshaling config:", err)
         return
     }
-
+    // 0644 is Unix permissions
     err = ioutil.WriteFile(filename, data, 0644)
     if err != nil {
         fmt.Println("Error writing config file:", err)
@@ -186,7 +190,9 @@ func saveConfig(config Config, filename string) {
     }
 }
 func generateWebSocketTraffic(config Config) {
-    dialer := websocket.Dialer{}
+    dialer := websocket.Dialer{
+        HandshakeTimeout: time.Duration(config.WebSocketTimeout) * time.Second, 
+    }
 
     for _, url := range config.URLs {
         for _, ua := range config.UserAgents {
