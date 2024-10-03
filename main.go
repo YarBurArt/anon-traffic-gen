@@ -8,6 +8,8 @@ import (
     "net/http"
     "regexp"
     "os"
+    "os/signal"
+    "syscall"
     "time"
 
     "github.com/gorilla/websocket"
@@ -39,11 +41,23 @@ var rootCmd = &cobra.Command{
         go sendRequests(config, stop)
         // more effective on tiny but popular torrents, where a lot of IP for content distribution
         go downloadFile(config.TorrentLink, config.MaxRetries) // some time for ip spoof 
-        fmt.Println("Press Enter to stop")
-        fmt.Scanln()
 
-        close(stop)
+        handleSignals(stop)
+        fmt.Println("Press Ctrl+C to stop")
+        <-stop // wait to stop signal
     },
+}
+
+func handleSignals(stop chan struct{}) {
+    signalChan := make(chan os.Signal, 1) // correct handle termination signals
+    signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTSTP)
+    go func() { 
+        <-signalChan;close(stop) }()
+    // to original dir before removing the tmp folder
+    defer func() {
+        os.Chdir("..");// remove the folder on exit 
+        os.RemoveAll(filepath.Join(".", "tmp_data_t"));
+    }()
 }
 
 func init() {
@@ -74,6 +88,14 @@ func loadConfig() Config {
 }
 
 func downloadFile(magnetURI string, maxAttempts int) {
+    downloadDir := filepath.Join(".", "tmp_data_t")
+    os.MkdirAll(downloadDir, os.ModePerm)
+    
+    if err := os.Chdir(downloadDir); err != nil {
+        fmt.Println("Error changing directory:", err)
+        return
+    }
+
     for attempts := 0; attempts < maxAttempts; attempts++ {
         client, _ := torrent.NewClient(nil)
         t, _ := client.AddMagnet(magnetURI)
@@ -83,7 +105,7 @@ func downloadFile(magnetURI string, maxAttempts int) {
         client.WaitAll()
         fi := t.Files()[0]
         fileName := filepath.Base(fi.Path())
-        filePath := filepath.Join(".", fileName)
+        filePath := filepath.Join(downloadDir, fileName)
 
         os.Remove(filePath)
         if attempts < maxAttempts-1 {
