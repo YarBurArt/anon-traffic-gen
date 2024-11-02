@@ -14,7 +14,7 @@ The application uses the Cobra library for the command-line interface, Viper for
 
 2. **Command-Line Interface**: Cobra is used to implement the command-line interface, allowing users to easily run the application with custom configuration options.
 
-3. **Traffic Generation**: The `sendRequests()` function is the core of the application, managing the main traffic generation loop. It alternates between sending HTTP requests using the `sendHTTPRequests()` function and generating WebSocket traffic with the `generateWebSocketTraffic()` function, with a delay for rate limiting. The `downloadFile` function downloads a file from a magnet URI using a torrent client, retrying the download up to a specified number of attempts, saving the file, and cleaning up the client, to hide parallel proxy connections.
+3. **Traffic Generation**: The `sendRequests()` function is the core of the application, managing the main traffic generation loop. It alternates between sending HTTP requests using the `sendHTTPRequests()` function and generating WebSocket traffic with the `generateWebSocketTraffic()` function, with a delay for rate limiting. The `downloadFileTorrent()` function downloads a file from a magnet URI using a torrent client, retrying the download up to a specified number of attempts, saving the file, and cleaning up the client, to hide parallel proxy connections.
 
 
 ## Code Structure
@@ -26,7 +26,7 @@ The application uses the Cobra library for the command-line interface, Viper for
    - `sendHTTPRequests()`: Sends HTTP GET requests to the configured URLs using the configured user agents.
    - `generateWebSocketTraffic()`: Establishes WebSocket connections to the configured URLs, sends a random message, and immediately closes the connection.
 5. `main()`: The entry point of the application, which executes the `rootCmd`.
-6. `downloadFile` softly hides tunnel, vpn and proxy connections, via torrent ip connection
+6. `downloadFileTorrent()` softly hides tunnel, vpn and proxy connections, via torrent ip connection
 
 ## Dependencies
 

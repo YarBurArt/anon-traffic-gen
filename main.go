@@ -20,6 +20,7 @@ import (
 )
 
 type Config struct {
+    // mapstructure decode json to Go map[string]interface{} or same 
     URLs       []string `mapstructure:"urls"`
     UserAgents []string `mapstructure:"user_agents"`
     RateLimit    int      `mapstructure:"rate_limit"`
@@ -29,10 +30,13 @@ type Config struct {
     TorrentLink  string   `mapstructure:"torrent_link"`
 }
 
-var rootCmd = &cobra.Command{
+var rootCmd = &cobra.Command{ 
+    // cobra instance for easy use app by CLI, it is used from the main entry point below  
     Use:   "my-app",
     Short: "A simple application to generate HTTP traffic",
-    Run: func(cmd *cobra.Command, args []string) {
+    Run: func(cmd *cobra.Command, args []string) { 
+        // entry point for CLI part of the program
+        // cmd - current instance, args for todo --config, -h ...  
         config := loadConfig()
 
         fmt.Println("Starting HTTP traffic generation...")
@@ -40,7 +44,7 @@ var rootCmd = &cobra.Command{
 
         go sendRequests(config, stop)
         // more effective on tiny but popular torrents, where a lot of IP for content distribution
-        go downloadFile(config.TorrentLink, config.MaxRetries) // some time for ip spoof 
+        go downloadFileTorrent(config.TorrentLink, config.MaxRetries) // some time for ip spoof 
 
         handleSignals(stop)
         fmt.Println("Press Ctrl+C to stop")
@@ -48,14 +52,16 @@ var rootCmd = &cobra.Command{
     },
 }
 
-func handleSignals(stop chan struct{}) {
+func handleSignals(stop chan struct{}) { 
+    // handle make(chan struct{}) if it is like ctrl+c 
+    // or SIGINT, SIGTERM, SIGTSTP from unix process termination
     signalChan := make(chan os.Signal, 1) // correct handle termination signals
     signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTSTP)
-    go func() { 
-        <-signalChan;close(stop) }()
+    
+    go func() { <-signalChan;close(stop) }()
     // to original dir before removing the tmp folder
     defer func() {
-        os.Chdir("..");// remove the folder on exit 
+        os.Chdir(".."); // remove the folder on exit 
         os.RemoveAll(filepath.Join(".", "tmp_data_t"));
     }()
 }
@@ -87,18 +93,21 @@ func loadConfig() Config {
     return config
 }
 
-func downloadFile(magnetURI string, maxAttempts int) {
+func downloadFileTorrent(magnetURI string, maxAttempts int) {
+    // temp downloads torrent via p2p network for IP connections only
     downloadDir := filepath.Join(".", "tmp_data_t")
     os.MkdirAll(downloadDir, os.ModePerm)
     
-    if err := os.Chdir(downloadDir); err != nil {
+    if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
         fmt.Println("Error changing directory:", err)
         return
     }
 
     for attempts := 0; attempts < maxAttempts; attempts++ {
+        // downloading a small torrent several times for IP difference
         client, _ := torrent.NewClient(nil)
         t, _ := client.AddMagnet(magnetURI)
+        
         // Wait for the download to complete
         <-t.GotInfo()
         t.DownloadAll()
@@ -107,7 +116,7 @@ func downloadFile(magnetURI string, maxAttempts int) {
         fileName := filepath.Base(fi.Path())
         filePath := filepath.Join(downloadDir, fileName)
 
-        os.Remove(filePath)
+        os.Remove(filePath) // no files needed, just the IP connections
         if attempts < maxAttempts-1 {
             time.Sleep(5 * time.Second)
         }
@@ -117,6 +126,7 @@ func downloadFile(magnetURI string, maxAttempts int) {
 }
 
 func sendRequests(config Config, stop chan struct{}) {
+    // wrapper for correct mixing of http and WS traffic 
     for {
         select {
         case <-stop:
@@ -136,7 +146,8 @@ func sendRequests(config Config, stop chan struct{}) {
     }
 }
 
-func sendHTTPRequests(config Config) {
+func sendHTTPRequests(config Config) { 
+    // mixing urls and user agents, sending requests, new urls to the config 
     for _, url := range config.URLs {
         for _, ua := range config.UserAgents {
             req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -161,7 +172,8 @@ func sendHTTPRequests(config Config) {
             // output current request status 
             fmt.Printf("Request: %s %s \n", http.MethodGet, url);
             fmt.Printf("Response: Status Code: %d, Elapsed Time: %s\n", resp.StatusCode, elapsed)
-
+            
+            // TODO: refactoring here 
             // Parse response body for additional URLs
             body, err := ioutil.ReadAll(resp.Body)
             if err != nil {
@@ -212,6 +224,8 @@ func saveConfig(config Config, filename string) {
     }
 }
 func generateWebSocketTraffic(config Config) {
+    // gently and somewhat interestingly generates some of the WS traffic
+
     dialer := websocket.Dialer{
         HandshakeTimeout: time.Duration(config.WebSocketTimeout) * time.Second, 
     }
