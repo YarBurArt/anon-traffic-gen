@@ -437,6 +437,4 @@ urls:
 useragents: []
 ratelimit: 0
 timeout: 30
-maxretries: 0
-websockettimeout: 0
-torrentlink: ""
+websockettimeout: 10

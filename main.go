@@ -2,6 +2,8 @@ package main
 
 import (
     "fmt"
+    "log"
+    "context"
     "path/filepath"
     "math/rand"
     "io/ioutil"
@@ -9,6 +11,7 @@ import (
     "regexp"
     "os"
     "os/signal"
+    "sync"
     "syscall"
     "time"
 
@@ -19,15 +22,15 @@ import (
     "github.com/anacrolix/torrent"
 )
 
+// mapstructure decode json to Go map[string]interface{} or same 
 type Config struct {
-    // mapstructure decode json to Go map[string]interface{} or same 
     URLs       []string `mapstructure:"urls"`
     UserAgents []string `mapstructure:"user_agents"`
     RateLimit    int      `mapstructure:"rate_limit"`
     Timeout      int      `mapstructure:"timeout"`
-    MaxRetries   int      `mapstructure:"max_retries"`
+    maxRetries   int      `mapstructure:"max_retries"`
     WebSocketTimeout int  `mapstructure:"websocket_timeout"`
-    TorrentLink  string   `mapstructure:"torrent_link"`
+    torrentLink  string   `mapstructure:"torrent_link"`
 }
 
 var rootCmd = &cobra.Command{ 
@@ -42,24 +45,41 @@ var rootCmd = &cobra.Command{
         fmt.Println("Starting HTTP traffic generation...")
         stop := make(chan struct{})
 
-        go sendRequests(config, stop)
-        // more effective on tiny but popular torrents, where a lot of IP for content distribution
-        go downloadFileTorrent(config.TorrentLink, config.MaxRetries) // some time for ip spoof 
+        ctx, cancel := context.WithCancel(context.Background())
+        defer cancel() 
+        go handleSignals(stop, cancel)
+        var wg sync.WaitGroup
+        wg.Add(2)
 
-        handleSignals(stop)
+        go func() {
+            defer wg.Done()
+            sendRequests(ctx, config, stop)
+        }()
+
+        go func() {
+            defer wg.Done()
+            // more effective on tiny but popular torrents, where a lot of IP for content distribution
+            downloadFileTorrent(ctx, config.torrentLink, config.maxRetries) // some time for ip spoof 
+        }()
+
         fmt.Println("Press Ctrl+C to stop")
         <-stop // wait to stop signal
+        wg.Wait()
     },
 }
 
-func handleSignals(stop chan struct{}) { 
+func handleSignals(stop chan struct{}, cancel context.CancelFunc) { 
     // handle make(chan struct{}) if it is like ctrl+c 
     // or SIGINT, SIGTERM, SIGTSTP from unix process termination
     signalChan := make(chan os.Signal, 1) // correct handle termination signals
     signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTSTP)
     
-    go func() { <-signalChan;close(stop) }()
-    // to original dir before removing the tmp folder
+    go func() {
+        <-signalChan
+        log.Println("Received stop signal, cancelling context...")
+        cancel() // reset context
+        close(stop)
+    }()    // to original dir before removing the tmp folder
     defer func() {
         os.Chdir(".."); // remove the folder on exit 
         os.RemoveAll(filepath.Join(".", "tmp_data_t"));
@@ -93,7 +113,7 @@ func loadConfig() Config {
     return config
 }
 
-func downloadFileTorrent(magnetURI string, maxAttempts int) {
+func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int) {
     // temp downloads torrent via p2p network for IP connections only
     downloadDir := filepath.Join(".", "tmp_data_t")
     os.MkdirAll(downloadDir, os.ModePerm)
@@ -103,32 +123,43 @@ func downloadFileTorrent(magnetURI string, maxAttempts int) {
         return
     }
 
-    for attempts := 0; attempts < maxAttempts; attempts++ {
-        // downloading a small torrent several times for IP difference
-        client, _ := torrent.NewClient(nil)
-        t, _ := client.AddMagnet(magnetURI)
-        
-        // Wait for the download to complete
-        <-t.GotInfo()
-        t.DownloadAll()
-        client.WaitAll()
-        fi := t.Files()[0]
-        fileName := filepath.Base(fi.Path())
-        filePath := filepath.Join(downloadDir, fileName)
+    select {
+    case <- ctx.Done():
+        log.Println("Stop torrent ...")
+        return
+    default:
+        fmt.Println("starting torrent")
 
-        os.Remove(filePath) // no files needed, just the IP connections
-        if attempts < maxAttempts-1 {
-            time.Sleep(5 * time.Second)
+        for attempts := 0; attempts < maxAttempts; attempts++ {
+            // downloading a small torrent several times for IP difference
+            client, _ := torrent.NewClient(nil)
+            t, _ := client.AddMagnet(magnetURI)
+            
+            // Wait for the download to complete
+            <-t.GotInfo()
+            t.DownloadAll()
+            client.WaitAll()
+            fi := t.Files()[0]
+            fileName := filepath.Base(fi.Path())
+            filePath := filepath.Join(downloadDir, fileName)
+
+            os.Remove(filePath) // no files needed, just the IP connections
+            if attempts < maxAttempts-1 {
+                time.Sleep(5 * time.Second)
+            }
+            // Cleanup the torrent client
+            client.Close()
         }
-        // Cleanup the torrent client
-        client.Close()
     }
 }
 
-func sendRequests(config Config, stop chan struct{}) {
+func sendRequests(ctx context.Context, config Config, stop chan struct{}) {
     // wrapper for correct mixing of http and WS traffic 
     for {
         select {
+        case <-ctx.Done():
+            log.Println("Stop http requests...")
+            return
         case <-stop:
             return
         default:
