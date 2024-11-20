@@ -44,6 +44,17 @@ var rootCmd = &cobra.Command{
 
         fmt.Println("Starting HTTP traffic generation...")
         stop := make(chan struct{})
+    
+        downloadDir := filepath.Join(".", "tmp_data_t")
+        if err := os.MkdirAll(downloadDir, os.ModePerm); err != nil {
+            log.Printf("Error creating directory %s: %v", downloadDir, err)
+            return
+        }
+        
+        if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
+            log.Printf("Error changing directory to %s: %v", downloadDir, err)
+            return
+        }
 
         ctx, cancel := context.WithCancel(context.Background())
         defer cancel() 
@@ -58,8 +69,10 @@ var rootCmd = &cobra.Command{
 
         go func() {
             defer wg.Done()
-            // more effective on tiny but popular torrents, where a lot of IP for content distribution
-            downloadFileTorrent(ctx, config.torrentLink, config.maxRetries) // some time for ip spoof 
+            // more effective on tiny but popular torrents, where a lot of IP for content distribution 
+            if err := downloadFileTorrent(ctx, config.torrentLink, config.maxRetries); err != nil {
+                log.Printf("Error in downloadFileTorrent: %v", err)
+            }
         }()
 
         fmt.Println("Press Ctrl+C to stop")
@@ -80,9 +93,13 @@ func handleSignals(stop chan struct{}, cancel context.CancelFunc) {
         cancel() // reset context
         close(stop)
     }()    // to original dir before removing the tmp folder
-    defer func() {
-        os.Chdir(".."); // remove the folder on exit 
-        os.RemoveAll(filepath.Join(".", "tmp_data_t"));
+    defer func() { // remove tmp with torrents
+        if err := os.Chdir(".."); err != nil {
+            log.Printf("Error changing directory to parent: %v", err)
+        }
+        if err := os.RemoveAll(filepath.Join(".", "tmp_data_t")); err != nil {
+            log.Printf("Error removing tmp_data_t directory: %v", err)
+        }
     }()
 }
 
@@ -108,21 +125,13 @@ func loadConfig() Config {
     var config Config
     err := viper.Unmarshal(&config)
     if err != nil {
-        fmt.Println("Unable to decode into struct, ", err)
+        log.Printf("Error validating config: %v", err)
     }
     return config
 }
 
 func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int) {
     // temp downloads torrent via p2p network for IP connections only
-    downloadDir := filepath.Join(".", "tmp_data_t")
-    os.MkdirAll(downloadDir, os.ModePerm)
-    
-    if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
-        fmt.Println("Error changing directory:", err)
-        return
-    }
-
     select {
     case <- ctx.Done():
         log.Println("Stop torrent ...")
@@ -183,7 +192,7 @@ func sendHTTPRequests(config Config) {
         for _, ua := range config.UserAgents {
             req, err := http.NewRequest(http.MethodGet, url, nil)
             if err != nil {
-                fmt.Println("Error creating request:", err)
+                log.Printf("Error in sendHTTPRequests: %v", err)
                 continue
             }
             req.Header.Set("User-Agent", ua)
