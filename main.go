@@ -59,9 +59,7 @@ var rootCmd = &cobra.Command{
         go func() {
             defer wg.Done()
             // more effective on tiny but popular torrents, where a lot of IP for content distribution 
-            if err := downloadFileTorrent(ctx, config.torrentLink, config.maxRetries); err != nil {
-                log.Printf("Error in downloadFileTorrent: %v", err)
-            }
+            downloadFileTorrent(ctx, config.torrentLink, config.maxRetries)
         }()
 
         fmt.Println("Press Ctrl+C to stop")
