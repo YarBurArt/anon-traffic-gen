@@ -70,7 +70,7 @@ var rootCmd = &cobra.Command{
         go func() {
             defer wg.Done()
             // more effective on tiny but popular torrents, where a lot of IP for content distribution 
-            if err := downloadFileTorrent(ctx, config.torrentLink, config.maxRetries); err != nil {
+            if err := downloadFileTorrent(ctx, config.torrentLink, config.maxRetries, downloadDir); err != nil {
                 log.Printf("Error in downloadFileTorrent: %v", err)
             }
         }()
@@ -96,9 +96,9 @@ func handleSignals(stop chan struct{}, cancel context.CancelFunc) {
     defer func() { // remove tmp with torrents
         if err := os.Chdir(".."); err != nil {
             log.Printf("Error changing directory to parent: %v", err)
-        }
-        if err := os.RemoveAll(filepath.Join(".", "tmp_data_t")); err != nil {
-            log.Printf("Error removing tmp_data_t directory: %v", err)
+            if err := os.RemoveAll(filepath.Join(".", "tmp_data_t")); err != nil {
+                log.Printf("Error removing tmp_data_t directory: %v", err)
+            }
         }
     }()
 }
@@ -130,7 +130,7 @@ func loadConfig() Config {
     return config
 }
 
-func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int) {
+func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int, downloadDir string) {
     // temp downloads torrent via p2p network for IP connections only
     select {
     case <- ctx.Done():
