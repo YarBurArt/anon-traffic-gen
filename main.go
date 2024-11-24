@@ -44,17 +44,6 @@ var rootCmd = &cobra.Command{
 
         fmt.Println("Starting HTTP traffic generation...")
         stop := make(chan struct{})
-    
-        downloadDir := filepath.Join(".", "tmp_data_t")
-        if err := os.MkdirAll(downloadDir, os.ModePerm); err != nil {
-            log.Printf("Error creating directory %s: %v", downloadDir, err)
-            return
-        }
-        
-        if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
-            log.Printf("Error changing directory to %s: %v", downloadDir, err)
-            return
-        }
 
         ctx, cancel := context.WithCancel(context.Background())
         defer cancel() 
@@ -70,7 +59,7 @@ var rootCmd = &cobra.Command{
         go func() {
             defer wg.Done()
             // more effective on tiny but popular torrents, where a lot of IP for content distribution 
-            if err := downloadFileTorrent(ctx, config.torrentLink, config.maxRetries, downloadDir); err != nil {
+            if err := downloadFileTorrent(ctx, config.torrentLink, config.maxRetries); err != nil {
                 log.Printf("Error in downloadFileTorrent: %v", err)
             }
         }()
@@ -130,8 +119,18 @@ func loadConfig() Config {
     return config
 }
 
-func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int, downloadDir string) {
+func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int) {
     // temp downloads torrent via p2p network for IP connections only
+    downloadDir := filepath.Join(".", "tmp_data_t")
+    if err := os.MkdirAll(downloadDir, os.ModePerm); err != nil {
+        log.Printf("Error creating directory %s: %v", downloadDir, err)
+        return
+    }
+    
+    if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
+        log.Printf("Error changing directory to %s: %v", downloadDir, err)
+        return
+    }
     select {
     case <- ctx.Done():
         log.Println("Stop torrent ...")
