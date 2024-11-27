@@ -63,7 +63,6 @@ var rootCmd = &cobra.Command{
         }()
 
         fmt.Println("Press Ctrl+C to stop")
-        <-stop // wait to stop signal
         wg.Wait()
     },
 }
@@ -120,13 +119,12 @@ func loadConfig() Config {
 func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int) {
     // temp downloads torrent via p2p network for IP connections only
     downloadDir := filepath.Join(".", "tmp_data_t")
-    if err := os.MkdirAll(downloadDir, os.ModePerm); err != nil {
+    if err := os.MkdirAll(downloadDir, os.ModePerm); err != nil { // mkdir ./tmp_data_t
         log.Printf("Error creating directory %s: %v", downloadDir, err)
-        return
-    }
-    
-    if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
-        log.Printf("Error changing directory to %s: %v", downloadDir, err)
+        if err := os.Chdir(downloadDir); err != nil { // cd ./tmp_data_t
+            log.Printf("Error changing directory to %s: %v", downloadDir, err)
+            return
+        }
         return
     }
     select {
