@@ -1,0 +1,15 @@
+# you must modify the main config and compile beforehand on your system 
+# ubuntu because the irony of glibc security with golang 
+FROM ubuntu:22.04
+WORKDIR /app
+
+# Copy just the binary and configuration file
+COPY spoof-http . 
+COPY config.yaml .
+RUN chmod u+x ./spoof-http
+
+# for debug and test
+ENTRYPOINT ["/bin/sh", "-c"]
+
+# Run the application
+CMD ["/app/spoof-http", "--config=config.yaml"]

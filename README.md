@@ -104,8 +104,6 @@ While the code works, there may be opportunities to enhance its readability and 
 
 Additionally, the application might not always manage rate limiting perfectly, which could lead to unexpected behavior during traffic generation. The torrent functionality may also need some adjustments for optimal performance.
 
-These aspects present a chance for improvement, and exploring the code could lead to valuable insights and enhancements!
-
 To run the application, use the following command:
 
 ```
@@ -113,6 +111,21 @@ main --config=config.yaml
 ```
 
 This will start the traffic generation and continue until you press to stop.
+
+Or via docker, for some unknown reason 
+> at this point, you must already have an app compiled and config
+```bash
+docker build -f .\Dockerfile.mini -t anon-traffic-gen:dev .
+```
+Create new and run, be careful with bridges if you are manually configuring network
+```bash
+docker run --rm --name anon-traffic-gen-c anon-traffic-gen:dev
+```
+launch a previously created 
+```bash
+docker start anon-traffic-gen-c
+```
+
 
 ## Contributing
 
