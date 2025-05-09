@@ -24,7 +24,7 @@ WORKDIR /app
 
 # no expose because we only download and fetch
 
-COPY --from=builder /app/main .
+COPY --from=builder /app/spoof-http .
 COPY --from=builder /app/config.yaml .
 
-CMD ["./main", "--config=config.yaml"]
+CMD ["./spoof-http", "--config=config.yaml"]
