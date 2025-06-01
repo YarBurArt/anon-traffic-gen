@@ -4,7 +4,7 @@
 .torrent.db 
 .torrent.db-shm
 .torrent.db-wal
-
+tmp_data_t/
 # Binaries for programs and plugins
 *.exe
 *.exe~
