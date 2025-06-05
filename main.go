@@ -35,7 +35,7 @@ type Config struct {
 
 var rootCmd = &cobra.Command{ 
     // cobra instance for easy use app by CLI, it is used from the main entry point below  
-    Use:   "my-app",
+    Use:   "main",
     Short: "A simple application to generate HTTP traffic",
     Run: func(cmd *cobra.Command, args []string) { 
         // entry point for CLI part of the program
@@ -72,7 +72,7 @@ func handleSignals(stop chan struct{}, cancel context.CancelFunc) {
     // or SIGINT, SIGTERM, SIGTSTP from unix process termination
     signalChan := make(chan os.Signal, 1) // correct handle termination signals
     signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTSTP)
-    
+
     go func() {
         <-signalChan
         log.Println("Received stop signal, cancelling context...")
@@ -91,8 +91,12 @@ func handleSignals(stop chan struct{}, cancel context.CancelFunc) {
 
 func init() {
     cobra.OnInitialize(initConfig)
-    rootCmd.PersistentFlags().String("config", "config.yaml", "config file (default is config.yaml)")
+    rootCmd.PersistentFlags().String(
+        "config", "config.yaml", "config file (default is config.yaml)")
+    rootCmd.PersistentFlags().Bool(
+        "debug", false, "enable debug log")
     viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+    viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 }
 
 func initConfig() {
@@ -102,7 +106,7 @@ func initConfig() {
     if configFile != "" {
         viper.SetConfigFile(configFile)
         if err := viper.ReadInConfig(); err != nil {
-            fmt.Println("Error reading config file:", err)
+            log.Println("Error reading config file:", err)
         }
     }
 }
@@ -132,13 +136,15 @@ func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int)
         log.Println("Stop torrent ...")
         return
     default:
-        fmt.Println("starting torrent")
-
+        log.Println("starting torrent")
+        if viper.GetBool("debug") {
+            log.Printf("URI: %s", magnetURI)
+        }
         for attempts := 0; attempts < maxAttempts; attempts++ {
             // downloading a small torrent several times for IP difference
             client, _ := torrent.NewClient(nil)
             t, _ := client.AddMagnet(magnetURI)
-            
+
             // Wait for the download to complete
             <-t.GotInfo()
             t.DownloadAll()
@@ -190,6 +196,9 @@ func sendHTTPRequests(config Config) {
                 log.Printf("Error in sendHTTPRequests: %v", err)
                 continue
             }
+            if viper.GetBool("debug") {
+                log.Println("url x user agent combination: ", url, ua)
+            }
             req.Header.Set("User-Agent", ua)
 
             // send request and measure time
@@ -207,7 +216,7 @@ func sendHTTPRequests(config Config) {
             // output current request status 
             fmt.Printf("Request: %s %s \n", http.MethodGet, url);
             fmt.Printf("Response: Status Code: %d, Elapsed Time: %s\n", resp.StatusCode, elapsed)
-            
+
             // TODO: refactoring here 
             // Parse response body for additional URLs
             body, err := ioutil.ReadAll(resp.Body)
@@ -281,7 +290,7 @@ func generateWebSocketTraffic(config Config) {
             message := []byte(fmt.Sprintf("WS message: %d", rand.Intn(1000)))
             err = conn.WriteMessage(websocket.TextMessage, message)
             if err != nil {
-                fmt.Println("Error sending WebSocket message:", err)
+                log.Println("Error sending WebSocket message:", err)
             }
         }
     }
