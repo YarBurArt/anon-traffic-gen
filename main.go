@@ -28,9 +28,9 @@ type Config struct {
     UserAgents []string `mapstructure:"user_agents"`
     RateLimit    int      `mapstructure:"rate_limit"`
     Timeout      int      `mapstructure:"timeout"`
-    maxRetries   int      `mapstructure:"max_retries"`
+    MaxRetries   int      `mapstructure:"max_retries"`
     WebSocketTimeout int  `mapstructure:"websocket_timeout"`
-    torrentLink  string   `mapstructure:"torrent_link"`
+    TorrentLink  string   `mapstructure:"torrent_link"`
 }
 
 var rootCmd = &cobra.Command{ 
@@ -59,7 +59,7 @@ var rootCmd = &cobra.Command{
         go func() {
             defer wg.Done()
             // more effective on tiny but popular torrents, where a lot of IP for content distribution 
-            downloadFileTorrent(ctx, config.torrentLink, config.maxRetries)
+            downloadFileTorrent(ctx, config.TorrentLink, config.MaxRetries)
         }()
 
         fmt.Println("Press Ctrl+C to stop")
@@ -95,8 +95,11 @@ func init() {
         "config", "config.yaml", "config file (default is config.yaml)")
     rootCmd.PersistentFlags().Bool(
         "debug", false, "enable debug log")
+    rootCmd.PersistentFlags().Bool(
+        "rwconf", false, "enable rewrite config")
     viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
     viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+    viper.BindPFlag("rwconf", rootCmd.PersistentFlags().Lookup("rwconf"))
 }
 
 func initConfig() {
@@ -116,6 +119,9 @@ func loadConfig() Config {
     err := viper.Unmarshal(&config)
     if err != nil {
         log.Printf("Error validating config: %v", err)
+    }
+    if viper.GetBool("debug"){
+        log.Printf("loaded config: %+v", config)
     }
     return config
 }
@@ -139,6 +145,9 @@ func downloadFileTorrent(ctx context.Context, magnetURI string, maxAttempts int)
         log.Println("starting torrent")
         if viper.GetBool("debug") {
             log.Printf("URI: %s", magnetURI)
+        }
+        if magnetURI == "" {
+            log.Fatalln("magnet uri is empty")
         }
         for attempts := 0; attempts < maxAttempts; attempts++ {
             // downloading a small torrent several times for IP difference
@@ -230,12 +239,14 @@ func sendHTTPRequests(config Config) {
             for _, link := range links {
                 if !contains(config.URLs, link) {
                     config.URLs = append(config.URLs, link)
-                    fmt.Printf("Added new URL to config: %s\n", link)
+                    log.Printf("Added new URL to config: %s\n", link)
                 }
             }
         }
     }
-    saveConfig(config, "config.yaml") // update urls
+    if viper.GetBool("rwconf") {
+        saveConfig(config, "config.yaml") // update urls
+    }
 }
 
 func findURLs(text string) []string {
