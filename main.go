@@ -234,7 +234,7 @@ func sendHTTPRequests(config Config) {
 	    cfg_g = galer.New(cfg_g)
 	    links, err := cfg_g.Crawl(url)
 	    if err != nil {	
-                log.Printf("Error crawl url:", err)
+                log.Println("Error crawl url:", err)
                 links = []string{} 
 		continue
 	    }
