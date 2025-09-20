@@ -36,7 +36,8 @@ The application relies on the following external libraries:
 - [Viper](https://github.com/spf13/viper): For configuration management.
 - [Gorilla WebSocket](https://github.com/gorilla/websocket): For WebSocket communication.
 - [Anacrolix Torrent](https://github.com/anacrolix/torrent): For torrents IP
-  
+- [Galer](https://github.com/dwisiswant0/galer): For crawl new urls 
+
 These dependencies are managed using Go modules.
 
 ## Configuration
@@ -57,6 +58,18 @@ rate_limit: 1 # Requests per second
 
 ## Usage
 ### Installation Instructions
+
+```bash 
+go run .
+```
+
+that is similar to this
+
+```bash
+go run . --config=./config.yaml --debug=false --rwconf=false
+```
+
+### if that doesn't work, try this installation
 
 In Go, you typically don't need to manually install each dependency using `go get`. Instead, just run the `go build` command, which will automatically fetch and install any missing dependencies listed in your `go.mod` file.
 
@@ -133,4 +146,4 @@ If you find any issues or have suggestions for improvements, feel free to open a
 
 ## License
 
-This project is licensed under the [MIT License](https://github.com/YarBurArt/anon-traffic-gen/blob/main/LICENSE). Free use for peaceful purposes only.
+This project is licensed under the [MIT License](https://github.com/YarBurArt/anon-traffic-gen/blob/main/LICENSE).
