@@ -7,10 +7,12 @@ import (
     "path/filepath"
     "math/rand"
     "net/http"
+    net_url "net/url"
     "os"
     "os/signal"
     "sync"
     "syscall"
+    "strings"
     "time"
 
     "github.com/gorilla/websocket"
@@ -232,11 +234,21 @@ func sendHTTPRequests(config Config) {
 	    cfg_g = galer.New(cfg_g)
 	    links, err := cfg_g.Crawl(url)
 	    if err != nil {	
-                fmt.Println("Error crawl url:", err)
+                log.Printf("Error crawl url:", err)
                 links = []string{} 
 		continue
 	    }
 	    for _, link := range links {
+		parsedURL, err := net_url.Parse(link)
+        	if err != nil {
+            	    log.Println("Skipping invalid crawled link:", link, "Error:", err)
+            	    continue
+        	}
+
+        	if parsedURL.Hostname() == "127.0.0.1" || parsedURL.Hostname() == "localhost" {
+        	    log.Println("Skipping local address:", link)
+            	    continue
+        	}
                 if !contains(config.URLs, link) {
                     config.URLs = append(config.URLs, link)
                     log.Printf("Added new URL to config: %s\n", link)
@@ -280,13 +292,23 @@ func generateWebSocketTraffic(config Config) {
     }
 
     for _, url := range config.URLs {
+	var wsURL string
+	if strings.HasPrefix(url, "https://") {
+	    wsURL = "wss://" + strings.TrimPrefix(url, "https://")
+	} else if strings.HasPrefix(url, "http://") {
+	    wsURL = "ws://" + strings.TrimPrefix(url, "http://")
+	} else {
+	    // Skip url if it doesn't have a valid HTTP scheme
+	    log.Println("Skipping invalid URL:", url)
+	    continue
+	}
         for _, ua := range config.UserAgents {
             // Establish WebSocket connection
             headers := http.Header{}
             headers.Set("User-Agent", ua)
-            conn, _, err := dialer.Dial(url, headers)
+            conn, _, err := dialer.Dial(wsURL, headers)
             if err != nil {
-                fmt.Println("Error connecting to WebSocket:", err)
+                log.Println("Error connecting to WebSocket:", err)
                 continue
             }
             defer conn.Close()
