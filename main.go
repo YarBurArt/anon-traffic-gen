@@ -6,9 +6,7 @@ import (
     "context"
     "path/filepath"
     "math/rand"
-    "io/ioutil"
     "net/http"
-    "regexp"
     "os"
     "os/signal"
     "sync"
@@ -20,6 +18,7 @@ import (
     "gopkg.in/yaml.v2"
     "github.com/spf13/viper"
     "github.com/anacrolix/torrent"
+    "github.com/dwisiswant0/galer/pkg/galer"
 )
 
 // mapstructure decode json to Go map[string]interface{} or same 
@@ -100,6 +99,7 @@ func init() {
     viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
     viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
     viper.BindPFlag("rwconf", rootCmd.PersistentFlags().Lookup("rwconf"))
+    
 }
 
 func initConfig() {
@@ -226,17 +226,17 @@ func sendHTTPRequests(config Config) {
             fmt.Printf("Request: %s %s \n", http.MethodGet, url);
             fmt.Printf("Response: Status Code: %d, Elapsed Time: %s\n", resp.StatusCode, elapsed)
 
-            // TODO: refactoring here 
-            // Parse response body for additional URLs
-            body, err := ioutil.ReadAll(resp.Body)
-            if err != nil {
-                fmt.Println("Error reading response body:", err)
-                continue
-            }
-
             // new urls to  config
-            links := findURLs(string(body))
-            for _, link := range links {
+            //links := findURLs(string(body))
+            cfg_g := &galer.Config{Timeout: 15,}
+	    cfg_g = galer.New(cfg_g)
+	    links, err := cfg_g.Crawl(url)
+	    if err != nil {	
+                fmt.Println("Error crawl url:", err)
+                links = []string{} 
+		continue
+	    }
+	    for _, link := range links {
                 if !contains(config.URLs, link) {
                     config.URLs = append(config.URLs, link)
                     log.Printf("Added new URL to config: %s\n", link)
@@ -247,12 +247,6 @@ func sendHTTPRequests(config Config) {
     if viper.GetBool("rwconf") {
         saveConfig(config, "config.yaml") // update urls
     }
-}
-
-func findURLs(text string) []string {
-    // regex to find all URLs in response, FIXME: some html after url
-    urlRegex := regexp.MustCompile(`(https?://\S+)`)
-    return urlRegex.FindAllString(text, -1)
 }
 
 func contains(slice []string, value string) bool {
@@ -272,7 +266,7 @@ func saveConfig(config Config, filename string) {
         return
     }
     // 0644 is Unix permissions
-    err = ioutil.WriteFile(filename, data, 0644)
+    err = os.WriteFile(filename, data, 0644)
     if err != nil {
         fmt.Println("Error writing config file:", err)
         return

@@ -5,6 +5,8 @@
 .torrent.db-shm
 .torrent.db-wal
 tmp_data_t/
+tmp
+tmp_data_t
 # Binaries for programs and plugins
 *.exe
 *.exe~

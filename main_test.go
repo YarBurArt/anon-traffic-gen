@@ -27,7 +27,11 @@ rate_limit: 1
 
     // set path
     viper.SetConfigFile(configFile)
-    
+   
+    if err := viper.ReadInConfig(); err != nil {
+	t.Fatalf("Failed to read config in test: %v", err)
+    }
+
     cfg := loadConfig()
 
     // is correct load
