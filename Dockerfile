@@ -1,30 +1,21 @@
-# JUST SKETCH, WITHOUT DEBAG not to use.
+# build stage: cgo off keeps the result a static binary, so the runtime image
+# needs nothing but certificates
+FROM golang:1.27-alpine AS build
 
-# ubuntu latest as builder base because dependencies
-FROM ubuntu AS builder
+WORKDIR /src
 
-WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Copy go.mod and go.sum to cache dependencies
-COPY go.mod go.sum config.yaml ./
-# Install go 
-RUN apt-get update && apt-get upgrade -y 
-RUN apt-get install -y golang
-RUN apt-get install -y ca-certificates
-#RUN go mod download
-RUN go build -v
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/spoof-http ./cmd/spoof-http
 
-# Use a lighter image for running
-FROM alpine:latest
+FROM alpine:3.22
 
-# Install necessary packages
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
+COPY --from=build /out/spoof-http .
+COPY config.yaml .
 
-# no expose because we only download and fetch
-
-COPY --from=builder /app/spoof-http .
-COPY --from=builder /app/config.yaml .
-
-CMD ["./spoof-http", "--config=config.yaml"]
+CMD ["/app/spoof-http", "--config=/app/config.yaml"]

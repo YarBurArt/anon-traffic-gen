@@ -1,0 +1,5 @@
+.git
+.github
+spoof-http
+*.test
+*.out
