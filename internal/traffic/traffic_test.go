@@ -166,6 +166,26 @@ func TestExtractLinks(t *testing.T) {
 	}
 }
 
+func TestStandModeKeepsTheCrawlOnTheStand(t *testing.T) {
+	stand := mustParse(t, "http://127.0.0.1:8001/")
+	g := New(testConfig(), Options{Stand: stand})
+
+	if len(g.targets) != 1 || g.targets[0].URL != "http://127.0.0.1:8001/" {
+		t.Fatalf("pool did not start from the stand: %v", g.targets)
+	}
+	if g.stand != "127.0.0.1:8001" {
+		t.Fatalf("stand host: got %q", g.stand)
+	}
+
+	g.absorb(stand, []byte(`<a href="/a">a</a><a href="http://other.test/b">b</a>`))
+	if len(g.targets) != 2 {
+		t.Fatalf("pool: got %d entries, want the stand plus /a: %v", len(g.targets), g.targets)
+	}
+	if got := g.targets[1].URL; got != "http://127.0.0.1:8001/a" {
+		t.Fatalf("same-host link: got %q", got)
+	}
+}
+
 func BenchmarkGet(b *testing.B) {
 	srv := pageServer(b, benchPage)
 	g := New(testConfig(srv.URL), Options{Out: io.Discard})

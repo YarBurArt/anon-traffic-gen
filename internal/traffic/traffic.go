@@ -43,6 +43,7 @@ type Options struct {
 	Debug      bool
 	RWConf     bool
 	Torrent    bool
+	Stand      *url.URL
 	ConfigPath string
 	Out        io.Writer
 }
@@ -53,6 +54,8 @@ type Generator struct {
 	out    *bufio.Writer
 	client *http.Client
 	dialer *websocket.Dialer
+
+	stand string
 
 	targets []Target
 	seen    map[string]struct{}
@@ -90,6 +93,11 @@ func New(cfg *config.Config, opt Options) *Generator {
 		g.agent[ua] = []string{ua}
 	}
 
+	if opt.Stand != nil {
+		g.stand = opt.Stand.Host
+		g.add(opt.Stand)
+		return g
+	}
 	for _, raw := range cfg.URLs {
 		u, err := url.Parse(raw)
 		if err != nil {

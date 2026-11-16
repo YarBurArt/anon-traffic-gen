@@ -96,8 +96,13 @@ func (g *Generator) absorb(base *url.URL, body []byte) {
 	g.links = extractLinks(g.links[:0], base, body)
 	for i := range g.links {
 		link := &g.links[i]
-		// loopback links are dropped, so the crawl cannot turn on this machine
-		if isLocal(link) {
+		// a stand is followed on its own host only; elsewhere loopback links are
+		// dropped, so the crawl cannot turn on this machine
+		if g.stand != "" {
+			if link.Host != g.stand {
+				continue
+			}
+		} else if isLocal(link) {
 			continue
 		}
 		if g.add(link) && g.opt.Debug {

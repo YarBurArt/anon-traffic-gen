@@ -20,10 +20,7 @@ type Config struct {
 	TorrentLink      string   `yaml:"torrent_link"`
 }
 
-var (
-	ErrNoURLs       = errors.New("urls is empty")
-	ErrNoUserAgents = errors.New("user_agents is empty")
-)
+var ErrNoUserAgents = errors.New("user_agents is empty")
 
 func Load(path string) (*Config, error) {
 	raw, err := os.ReadFile(path)
@@ -38,9 +35,7 @@ func Load(path string) (*Config, error) {
 	if err := dec.Decode(&c); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	if len(c.URLs) == 0 {
-		return nil, fmt.Errorf("%s: %w", path, ErrNoURLs)
-	}
+	// urls may be empty, --stand-url can be the only target
 	if len(c.UserAgents) == 0 {
 		return nil, fmt.Errorf("%s: %w", path, ErrNoUserAgents)
 	}

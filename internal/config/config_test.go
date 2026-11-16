@@ -54,10 +54,21 @@ ratelimit: 5
 	}
 }
 
-func TestLoadRejectsEmptyPools(t *testing.T) {
+func TestLoadRejectsEmptyUserAgents(t *testing.T) {
+	path := write(t, "urls: [https://example.com]\n")
+	if _, err := Load(path); !errors.Is(err, ErrNoUserAgents) {
+		t.Fatalf("got %v, want ErrNoUserAgents", err)
+	}
+}
+
+func TestLoadAllowsUrlsToBeEmpty(t *testing.T) {
 	path := write(t, "user_agents: [ua-a]\n")
-	if _, err := Load(path); !errors.Is(err, ErrNoURLs) {
-		t.Fatalf("got %v, want ErrNoURLs", err)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("a stand-only config needs no urls: %v", err)
+	}
+	if len(cfg.URLs) != 0 {
+		t.Fatalf("urls came from somewhere: %v", cfg.URLs)
 	}
 }
 
