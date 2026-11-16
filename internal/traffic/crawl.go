@@ -6,7 +6,15 @@ import (
 	"strings"
 )
 
-var hrefAttr = []byte("href")
+var (
+	hrefAttr    = []byte("href")
+	commentOpen = []byte("<!--")
+	commentEnd  = []byte("-->")
+	scriptName  = []byte("script")
+	scriptClose = []byte("</script")
+	styleName   = []byte("style")
+	styleClose  = []byte("</style")
+)
 
 // extractLinks appends the links of a page to dst.
 func extractLinks(dst []url.URL, base *url.URL, body []byte) []url.URL {
@@ -18,6 +26,25 @@ func extractLinks(dst []url.URL, base *url.URL, body []byte) []url.URL {
 			continue
 		}
 		rest := body[i:]
+
+		// javascript and css are full of href-looking strings, and a link inside
+		// a comment was never offered to a visitor
+		if hasPrefixFold(rest, commentOpen) {
+			end := bytes.Index(rest, commentEnd)
+			if end < 0 {
+				return dst
+			}
+			i += end + len(commentEnd) - 1
+			continue
+		}
+		if closer, ok := blockClose(rest); ok {
+			end := indexFold(rest, closer)
+			if end < 0 {
+				return dst
+			}
+			i += end + len(closer) - 1
+			continue
+		}
 
 		tag := rest[1:]
 		if len(tag) < 2 || (tag[0] != 'a' && tag[0] != 'A') {
@@ -38,6 +65,44 @@ func extractLinks(dst []url.URL, base *url.URL, body []byte) []url.URL {
 		i += end
 	}
 	return dst
+}
+
+func blockClose(tag []byte) ([]byte, bool) {
+	switch {
+	case opensWithName(tag, scriptName):
+		return scriptClose, true
+	case opensWithName(tag, styleName):
+		return styleClose, true
+	}
+	return nil, false
+}
+
+func opensWithName(tag, name []byte) bool {
+	if len(tag) < len(name)+1 || !bytes.EqualFold(tag[1:len(name)+1], name) {
+		return false
+	}
+	if len(tag) == len(name)+1 {
+		return true
+	}
+	// the name has to end here, <stylesheet> is not a style block
+	switch tag[len(name)+1] {
+	case ' ', '\t', '\n', '\r', '>', '/':
+		return true
+	}
+	return false
+}
+
+func hasPrefixFold(b, prefix []byte) bool {
+	return len(b) >= len(prefix) && bytes.EqualFold(b[:len(prefix)], prefix)
+}
+
+func indexFold(haystack, needle []byte) int {
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		if bytes.EqualFold(haystack[i:i+len(needle)], needle) {
+			return i
+		}
+	}
+	return -1
 }
 
 func attrValue(tag, name []byte) (string, bool) {

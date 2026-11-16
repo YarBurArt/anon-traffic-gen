@@ -186,6 +186,19 @@ func TestStandModeKeepsTheCrawlOnTheStand(t *testing.T) {
 	}
 }
 
+func TestExtractLinksSkipsScriptsAndComments(t *testing.T) {
+	base := mustParse(t, "http://site.test/")
+	body := []byte(`<script>var dead = '<a href="/from-js">';</script>
+<!-- <a href="/from-comment"> -->
+<STYLE>a { background: url("/from-css") }</STYLE>
+<a href="/real">real</a><script src="/app.js"></script>`)
+
+	got := extractLinks(nil, base, body)
+	if len(got) != 1 || got[0].String() != "http://site.test/real" {
+		t.Fatalf("links: got %v, want only /real", got)
+	}
+}
+
 func BenchmarkGet(b *testing.B) {
 	srv := pageServer(b, benchPage)
 	g := New(testConfig(srv.URL), Options{Out: io.Discard})
