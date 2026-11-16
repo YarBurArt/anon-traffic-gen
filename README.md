@@ -1,144 +1,84 @@
 # anon-traffic-gen
 
-A simple application to generate HTTP and WebSocket traffic. The code is designed and licensed solely for legitimate use, as a protective measure against MITM attacks. For instance, if you suspect network equipment compromise, this application can help obfuscate your traffic and mitigate eavesdropping risks.
+Background traffic for IR labs. The generator walks a pool of urls,
+fetches each page with several user agents, follows the links it finds, dials
+websockets every so often, and adds torrent chatter if you ask for it. Enough
+going on that a blue team has something to sort the real events out of.
 
-## Description
+Check the result with the tools that will be doing the watching:
+[Arkime](https://github.com/arkime/arkime) for the session view,
+[nDPI](https://github.com/ntop/ndpi) for the protocol parsing. If either one can
+pick the generated traffic out of a capture at a glance, the noise needs more
+work.
 
-This application is designed to generate HTTP and WebSocket traffic to a set of configurable URLs, using a variety of user agents. It can be used for various purposes, such as testing, load generation, or simulating user activity.
+## usage
+```
+spoof-http [flags]
 
-The application uses the Cobra library for the command-line interface, Viper for configuration management, and Gorilla WebSocket for WebSocket communication. The main traffic generation logic is handled in the `sendRequests()` function, which alternates between sending HTTP requests and generating WebSocket traffic, with a configurable rate limit.
+    --config, -c    path to the yaml config (default "config.yaml")
+    --stand-url, -s crawl one host, e.g. http://10.0.0.1:8001
+    --torrent, -t   add torrent chatter, off unless asked for
+    --debug, -d     log every request and crawled url
+    --rwconf, -w    write crawled urls back into the config file
+```
 
-## Architecture
+Torrent chatter is opt-in: without `-t` the client never starts and the magnet
+link in the config is ignored.
 
-1. **Configuration Management**: The application uses Viper to load and parse the configuration file, which specifies the URLs, user agents, and rate limit.
+## stand mode
 
-2. **Command-Line Interface**: Cobra is used to implement the command-line interface, allowing users to easily run the application with custom configuration options.
+A lab target usually means one address, so point the generator at it:
 
-3. **Traffic Generation**: The `sendRequests()` function is the core of the application, managing the main traffic generation loop. It alternates between sending HTTP requests using the `sendHTTPRequests()` function and generating WebSocket traffic with the `generateWebSocketTraffic()` function, with a delay for rate limiting. The `downloadFileTorrent()` function downloads a file from a magnet URI using a torrent client, retrying the download up to a specified number of attempts, saving the file, and cleaning up the client, to hide parallel proxy connections.
+```bash
+spoof-http --config=lab.yaml --stand-url http://10.0.0.1:8001
+```
 
+The pool starts as that address and the crawl stays on the same host, so every
+page the stand links to is fetched with every user agent, pass after pass. The
+pool is rebuilt from the stand on each run, which is why `--rwconf` does nothing
+in this mode. A stand on loopback works too.
 
-## Code Structure
-
-1. `Config` struct: Defines the structure of the configuration.
-2. `rootCmd`: The main Cobra command that runs the application.
-3. `initConfig()` and `loadConfig()`: Functions responsible for loading and parsing the configuration file.
-4. `sendRequests()`: The main traffic generation loop.
-   - `sendHTTPRequests()`: Sends HTTP GET requests to the configured URLs using the configured user agents.
-   - `generateWebSocketTraffic()`: Establishes WebSocket connections to the configured URLs, sends a random message, and immediately closes the connection.
-5. `main()`: The entry point of the application, which executes the `rootCmd`.
-6. `downloadFileTorrent()` softly hides tunnel, vpn and proxy connections, via torrent ip connection
-
-## Dependencies
-
-The application relies on the following external libraries:
-
-- [Cobra](https://github.com/spf13/cobra): For the command-line interface.
-- [Viper](https://github.com/spf13/viper): For configuration management.
-- [Gorilla WebSocket](https://github.com/gorilla/websocket): For WebSocket communication.
-- [Anacrolix Torrent](https://github.com/anacrolix/torrent): For torrents IP
-- [Galer](https://github.com/dwisiswant0/galer): For crawl new urls 
-
-These dependencies are managed using Go modules.
-
-## Configuration
-
-The application uses a YAML configuration file, which can be specified using the `--config` flag. The default configuration file is `config.yaml`.
-
-The configuration file should have the following structure:
+## config
 
 ```yaml
 urls:
-  - "https://example.com"
-  - "https://another-example.com"
+  - https://example.com
 user_agents:
-  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-  - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8"
-rate_limit: 1 # Requests per second
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+rate_limit: 0        # seconds between passes, 0 means no pause
+timeout: 30          # per request, seconds
+websocket_timeout: 10
+max_retries: 3       # torrent attempts, only with --torrent
+torrent_link: "magnet:?xt=urn:btih:..."
 ```
 
-## Usage
-### Installation Instructions
+Unknown keys are an error, so a typo fails at startup instead of doing nothing.
+The pool is deduplicated and capped at 512 urls, because a page that links to
+itself would otherwise grow it on every pass. Crawled urls stay in memory unless
+`--rwconf` writes them back to the file.
+
+## build
+
+```bash
+go build -o spoof-http ./cmd/spoof-http
+```
+
+```bash
+docker build -t anon-traffic-gen .
+```
 
 ```bash 
-go run .
+docker run --rm anon-traffic-gen
 ```
 
-that is similar to this
+The image is a static binary on alpine plus ca-certificates, built with
+`CGO_ENABLED=0`. Locally cgo is optional.
 
-```bash
-go run . --config=./config.yaml --debug=false --rwconf=false
-```
+## Dependencies
 
-### if that doesn't work, try this installation
-
-In Go, you typically don't need to manually install each dependency using `go get`. Instead, just run the `go build` command, which will automatically fetch and install any missing dependencies listed in your `go.mod` file.
-
-```bash
-go build
-```
-
-
-You might need to use `go get` for specific dependencies only if the automatic installation during `go build` fails. This can be useful when you're modifying the source code or setting up the project for the first time and want to ensure all dependencies are in place.
-
-To install the required libraries for the `anon-traffic-gen` , you can use the following commands. Make sure you have Go installed on your system.
-
-1. **Gorilla WebSocket**:
-   ```bash
-   go get github.com/gorilla/websocket
-   ```
-
-2. **Cobra**:
-   ```bash
-   go get github.com/spf13/cobra
-   ```
-
-3. **Viper**:
-   ```bash
-   go get github.com/spf13/viper
-   ```
-
-4. **YAML**:
-   ```bash
-   go get gopkg.in/yaml.v2
-   ```
-
-5. **Anacrolix Torrent**:
-   ```bash
-   go get github.com/anacrolix/torrent
-   ```
-
-### Potential Issues After Installation
-
-After installing the libraries, you might run into some challenges that could affect how the application performs. There could be configuration issues that lead to instability, so it's a good idea to double-check your settings. 
-
-In some cases, certain functionalities might be better implemented manually instead of relying entirely on the libraries, which could improve performance and give you more control. 
-
-While the code works, there may be opportunities to enhance its readability and documentation, making it easier for others to understand and contribute. 
-
-Additionally, the application might not always manage rate limiting perfectly, which could lead to unexpected behavior during traffic generation. The torrent functionality may also need some adjustments for optimal performance.
-
-To run the application, use the following command:
-
-```
-main --config=config.yaml
-```
-
-This will start the traffic generation and continue until you press to stop.
-
-Or via docker, for some unknown reason 
-> at this point, you must already have an app compiled and config
-```bash
-docker build -f .\Dockerfile.mini -t anon-traffic-gen:dev .
-```
-Create new and run, be careful with bridges if you are manually configuring network
-```bash
-docker run --rm --name anon-traffic-gen-c anon-traffic-gen:dev
-```
-launch a previously created 
-```bash
-docker start anon-traffic-gen-c
-```
-
+- [anacrolix/torrent](https://github.com/anacrolix/torrent) for peer traffic and DHT joins
+- [gorilla/websocket](https://github.com/gorilla/websocket) for the websocket dials
+- [yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) for the config file
 
 ## Contributing
 
@@ -147,3 +87,4 @@ If you find any issues or have suggestions for improvements, feel free to open a
 ## License
 
 This project is licensed under the [MIT License](https://github.com/YarBurArt/anon-traffic-gen/blob/main/LICENSE).
+
