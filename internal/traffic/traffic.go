@@ -42,6 +42,7 @@ type Target struct {
 type Options struct {
 	Debug      bool
 	RWConf     bool
+	Torrent    bool
 	ConfigPath string
 	Out        io.Writer
 }
@@ -103,7 +104,7 @@ func New(cfg *config.Config, opt Options) *Generator {
 // Run generates until the context is cancelled.
 func (g *Generator) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	if g.cfg.TorrentLink != "" {
+	if g.opt.Torrent && g.cfg.TorrentLink != "" {
 		dir, err := os.MkdirTemp("", "anon-traffic-gen-")
 		if err != nil {
 			log.Printf("torrent off, no temp dir: %v", err)

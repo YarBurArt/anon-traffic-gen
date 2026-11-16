@@ -17,9 +17,11 @@ import (
 
 func main() {
 	path := flag.String("config", "config.yaml", "config file")
+	torrent := flag.Bool("torrent", false, "add torrent chatter")
 	debug := flag.Bool("debug", false, "log every request and crawled url")
 	rwconf := flag.Bool("rwconf", false, "write crawled urls back to the config")
 
+	flag.BoolVar(torrent, "t", false, "shorthand for --torrent")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -27,10 +29,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	if *torrent && cfg.TorrentLink == "" {
+		log.Fatal("--torrent needs torrent_link in the config")
+	}
 
 	opt := traffic.Options{
 		Debug:      *debug,
 		RWConf:     *rwconf,
+		Torrent:    *torrent,
 		ConfigPath: *path,
 		Out:        os.Stdout,
 	}
@@ -54,8 +60,9 @@ usage:
   spoof-http [flags]
 
 flags:
-  --config    path to the yaml config (default "config.yaml")
-  --debug     log every request and crawled url
-  --rwconf    write crawled urls back into the config file
+  --config      path to the yaml config (default "config.yaml")
+  --torrent     add torrent chatter, off unless asked for
+  --debug       log every request and crawled url
+  --rwconf      write crawled urls back into the config file
 `)
 }
